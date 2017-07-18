@@ -1,0 +1,16 @@
+language: c
+
+matrix:
+    include:
+        - os: linux
+        - os: osx
+          env: SED=gsed
+
+before_install:
+    - if [ $TRAVIS_OS_NAME = osx ]; then
+      brew install gnu-sed;
+      fi
+
+script:
+    - make
+    - ./test-libwhich.sh
