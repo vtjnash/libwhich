@@ -28,6 +28,19 @@ S=`./libwhich`
 echo RESULT: $S
 [ "$S" = "expected 1 argument specifying library to open (got 0)" ] || exit 1
 
+S=`./libwhich '' 2`
+[ $? -eq 1 ] || exit 1
+echo RESULT: $S
+[ "$S" = "expected first argument to specify an output option:
+  -p  library path
+  -a  all dependencies
+  -d  direct dependencies" ] || exit 1
+
+S=`./libwhich 1 2 3`
+[ $? -eq 1 ] || exit 1
+echo RESULT: $S
+[ "$S" = "expected 1 argument specifying library to open (got 3)" ] || exit 1
+
 S=`./libwhich not_a_library`
 [ $? -eq 1 ] || exit 1
 echo RESULT: $S
@@ -56,6 +69,21 @@ S1b=`echo "$S" | $GREP '^+ /.*libz.*'`
 [ "$S1a" = "$S1b" ] || exit 1
 S2=`echo $S | $SED -e 's!^library: /[^ ]*libz[^ ]* dependencies: /.*libz.*$!ok!'`
 [ "$S2" = "ok" ] || exit 1
+
+## tests for script usages ##
+
+S=`./libwhich -p libdl.$SHEXT`
+echo RESULT: $S
+[ -n "$S" ] || exit 1
+stat "$S"
+
+S=`./libwhich -a libdl.$SHEXT | xargs -0 echo`
+echo RESULT: "$S"
+[ -n "$S" ] || exit 1
+
+S=`./libwhich -d libdl.$SHEXT | xargs -0 echo`
+echo RESULT: $S
+[ -z "$S" ] || exit 1
 
 ## finished successfully ##
 echo "SUCCESS"

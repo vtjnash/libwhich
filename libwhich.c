@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <getopt.h>
 #include <dlfcn.h>
 
 struct vector_t {
@@ -69,11 +68,26 @@ const char *dlpath(void *handle, struct vector_t name)
 
 int main(int argc, char **argv)
 {
-    if (argc != 2) {
+    char opt = 0;
+    const char *libname;
+    if (argc == 2) {
+        libname = argv[1];
+    } else if (argc == 3) {
+        libname = argv[2];
+        if (argv[1][0] == '-')
+            opt = argv[1][1];
+        if (opt == '\0' || argv[1][2] != '\0' ||
+            !(opt == 'p' || opt == 'a' || opt == 'd')) {
+            printf("expected first argument to specify an output option:\n"
+                   "  -p  library path\n"
+                   "  -a  all dependencies\n"
+                   "  -d  direct dependencies\n");
+            return 1;
+        }
+    } else {
         printf("expected 1 argument specifying library to open (got %d)\n", argc - 1);
         return 1;
     }
-    const char *libname = argv[1];
     struct vector_t before = dllist();
     void *lib = dlopen(libname, RTLD_LAZY);
     if (!lib) {
@@ -82,16 +96,41 @@ int main(int argc, char **argv)
     }
     struct vector_t after = dllist();
     const char *name = dlpath(lib, after);
-    printf("library:\n  %s\n\n", name ? name : "");
-    printf("dependencies:\n");
-    for (size_t i = 0; i < after.length; i++) {
-        const char *name = after.data[i];
-        int new = 1;
-        for (size_t j = 0; new && j < before.length; j++) {
-            if (before.data[j] == name)
-                new = 0;
+    switch (opt) {
+    case 0:
+        printf("library:\n  %s\n\n", name ? name : "");
+        printf("dependencies:\n");
+        for (size_t i = 0; i < after.length; i++) {
+            const char *depname = after.data[i];
+            int new = 1;
+            for (size_t j = 0; new && j < before.length; j++) {
+                if (before.data[j] == depname)
+                    new = 0;
+            }
+            printf("%c %s\n", new ? '+' : ' ', depname);
         }
-        printf("%c %s\n", new ? '+' : ' ', name);
+        break;
+    case 'p':
+        if (name)
+            fputs(name, stdout);
+        break;
+    case 'a':
+    case 'd':
+        for (size_t i = 0; i < after.length; i++) {
+            const char *depname = after.data[i];
+            int new = (depname != name);
+            for (size_t j = 0; new && j < before.length; j++) {
+                if (before.data[j] == depname)
+                    new = 0;
+            }
+            if (opt == 'a' || new) {
+                fputs(depname, stdout);
+                putchar('\0');
+            }
+        }
+        break;
+    default:
+        abort(); // unreachable
     }
     return 0;
 }

@@ -27,8 +27,16 @@ To reverse that, feed the library path to `otool -D`.
 On Linux, this returns the computed path from which the shared library was loaded.
 To normalize the path instead, use `readlink`.
 
+For script usage, the following options are also supported:
+
+    $ ./libwhich -p <library>
+
+ - -p  print just the library path to stdout
+ - -a  print all dependencies (including the library itself) to stdout, separated by NUL (``\0'') characters
+ - -d  direct dependencies (excluding the library), separated by NUL (``\0'') characters
+
 ## Building
 
 Building is straightforward: just run `make`.
 
-Run tests with `./test-libwhich`.
+Run tests with `./test-libwhich.sh` or `make check` (requires `gsed`).
