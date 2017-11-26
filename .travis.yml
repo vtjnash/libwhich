@@ -1,15 +1,30 @@
 language: c
 
+notifications:
+    email: false
+
 matrix:
     include:
         - os: linux
         - os: osx
-          env: SED=gsed
+          env: SED=./sed/gsed
 
 before_install:
-    - if [ $TRAVIS_OS_NAME = osx ]; then
-      brew install gnu-sed;
-      fi
+    - ls;
+      [ $TRAVIS_OS_NAME != osx ] ||
+      [ -e sed/gsed ] ||
+      (curl http://mirror.us-midwest-1.nexcess.net/gnu/sed/sed-4.4.tar.xz | tar x &&
+       ([ -d sed ] || mkdir sed) &&
+       pushd sed-4.4 &&
+       ./configure &&
+       make &&
+       cp sed/sed ../sed/gsed &&
+       popd &&
+       rm -rf sed-4.4)
+
+cache:
+  directories:
+    - $TRAVIS_BUILD_DIR/sed
 
 script:
     - make
