@@ -1,5 +1,11 @@
 #!/bin/sh
-# simple (bash) script to test the output of libwhich
+# simple shell (bash) script to test the output of libwhich
+# Required tools:
+#  grep
+#  xargs
+#  stat
+#  GNU sed
+#  libz (zlib1) shared library
 
 if [ "`uname`" = "Darwin" ]; then
 SHEXT=dylib
@@ -51,7 +57,33 @@ echo "$S1"
 ## tests for successes ##
 set -e # exit on error
 
-S=`./libwhich libdl.$SHEXT`
+### tests for script usages ###
+
+./libwhich -a libz.$SHEXT | xargs -0 stat > /dev/null # make sure the files are valid (suppress stdout)
+S=$(./libwhich -a libz.$SHEXT | $GREP -a `./libwhich -p libz.$SHEXT`) # make sure -p appears in the -a list
+echo RESULT: $S
+
+S=`./libwhich -a libz.$SHEXT | $SED -e 's/\x00.*//'` # get an existing shared library path
+echo RESULT: $S
+[ -n "$S" ] || exit 1
+stat "$S"
+LIB=$S # save it for later usage
+
+S=`./libwhich -p $LIB` # test for identity
+echo RESULT: $S
+[ "$S" = "$LIB" ] || exit 1
+
+S=`./libwhich -a $LIB | xargs -0 echo` # use xargs echo to turn \0 into spaces
+echo RESULT: "$S"
+[ -n "$S" ] || exit 1
+
+S=`./libwhich -d $LIB | xargs -0 echo` # check that it didn't load anything else
+echo RESULT: $S
+[ -z "$S" ] || exit 1
+
+### tests for command line ###
+
+S=`./libwhich $LIB`
 echo RESULT: $S
 set +e
 S1=`echo "$S" | $GREP '^+'`
@@ -69,21 +101,6 @@ S1b=`echo "$S" | $GREP '^+ /.*libz.*'`
 [ "$S1a" = "$S1b" ] || exit 1
 S2=`echo $S | $SED -e 's!^library: /[^ ]*libz[^ ]* dependencies: /.*libz.*$!ok!'`
 [ "$S2" = "ok" ] || exit 1
-
-## tests for script usages ##
-
-S=`./libwhich -p libdl.$SHEXT`
-echo RESULT: $S
-[ -n "$S" ] || exit 1
-stat "$S"
-
-S=`./libwhich -a libdl.$SHEXT | xargs -0 echo`
-echo RESULT: "$S"
-[ -n "$S" ] || exit 1
-
-S=`./libwhich -d libdl.$SHEXT | xargs -0 echo`
-echo RESULT: $S
-[ -z "$S" ] || exit 1
 
 ## finished successfully ##
 echo "SUCCESS"
