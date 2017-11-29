@@ -1,8 +1,17 @@
 default: libwhich
 
-override CFLAGS += -std=gnu99 -D_GNU_SOURCE
+TARGET = $(shell uname)
+override CFLAGS += -Wall -pedantic -O2
 override LDFLAGS +=
-ifeq ($(shell uname),Linux)
+
+ifeq ($(TARGET),WINNT)
+override CFLAGS += -std=c99 -municode
+override LDFLAGS += -municode -lpsapi
+else
+override CFLAGS += -std=gnu99 -D_GNU_SOURCE
+endif
+
+ifeq ($(TARGET),Linux)
 override LDFLAGS += -ldl
 endif
 
