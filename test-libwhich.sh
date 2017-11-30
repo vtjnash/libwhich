@@ -50,7 +50,7 @@ echo RESULT: $S
 S=`./libwhich not_a_library`
 [ $? -eq 1 ] || exit 1
 echo RESULT: $S
-S1=`echo $S | $SED -e 's!^failed to open library: .*\<not_a_library\>.*$!ok!'`
+S1=`echo $S | $SED -e 's!^failed to open library: .*$!ok!'`
 echo "$S1"
 [ "$S1" = "ok" ] || exit 1
 

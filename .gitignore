@@ -1,4 +1,8 @@
 libwhich
 *.o
+*.so
+*.dylib
+*.dll
+*.exe
 *.dSYM/
 .DS_Store

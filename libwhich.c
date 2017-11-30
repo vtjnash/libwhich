@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -9,27 +8,118 @@
 #include <psapi.h>
 #define T(str) L##str
 #define main wmain
-#define printf wprintf
-#define putchar putwchar
-#define fputs fputws
+int main(int argc, const WCHAR **argv);
+typedef struct {
+    HANDLE fd;
+} FILE;
+static FILE _stdout = { INVALID_HANDLE_VALUE };
+static FILE _stderr = { INVALID_HANDLE_VALUE };
+FILE *stdout = &_stdout;
+FILE *stderr = &_stderr;
+int fputs(const WCHAR *str, FILE *out)
+{
+    DWORD written;
+    if (WriteFile(out->fd, str, sizeof(WCHAR) * wcslen(str), &written, NULL))
+        return written;
+    return -1;
+}
+int putchar(WCHAR c)
+{
+    DWORD written;
+    if (WriteFile(stdout->fd, &c, sizeof(WCHAR), &written, NULL))
+        return c;
+    return -1;
+}
+void abort() {
+    ExitProcess(128 + 6);
+}
+LPWSTR *CommandLineToArgvW(LPWSTR lpCmdLine, int *pNumArgs)
+{
+    LPWSTR cmd = lpCmdLine;
+    unsigned MaxEntries = 4;
+    LPWSTR *cmds;
+    *pNumArgs = 0;
+    cmds = (LPWSTR*)HeapAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS, sizeof(LPWSTR) * MaxEntries);
+    while (1) {
+        switch (*lpCmdLine) {
+        case 0:
+            cmds[(*pNumArgs)++] = cmd;
+            cmds[*pNumArgs] = NULL;
+            return cmds;
+        case '\\':
+        case '"':
+        case '\'':
+        default:
+            break;
+        case ' ':
+            *lpCmdLine = '\0';
+            cmds[(*pNumArgs)++] = cmd;
+            cmd = lpCmdLine + 1;
+            if (*pNumArgs >= MaxEntries - 1) {
+                MaxEntries *= 2;
+                cmds = (LPWSTR*)HeapReAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS, cmds, sizeof(LPWSTR) * MaxEntries);
+            }
+        }
+        lpCmdLine++;
+    }
+}
+int WINAPI mainCRTStartup(void)
+{
+    int argc;
+    LPWSTR *argv;
+    int retcode;
+    // setup
+    _stdout.fd = GetStdHandle(STD_OUTPUT_HANDLE);
+    _stderr.fd = GetStdHandle(STD_ERROR_HANDLE);
+    argv = CommandLineToArgvW(GetCommandLine(), &argc);
+    // main
+    retcode = main(argc, (const WCHAR **)argv);
+    ExitProcess(retcode);
+}
+
+#else
+#include <dlfcn.h>
+#include <stdio.h>
+typedef char WCHAR;
+#define T(str) str
+#endif
+
+#ifndef RTLD_LAZY
+#define RTLD_LAZY 0
+#endif
+
 typedef const WCHAR* STR;
+
+void int2str(WCHAR *out, int d)
+{
+    WCHAR *end = out;
+    int neg = (d < 0);
+    do {
+    int c = d % 10;
+    if (neg)
+            c = -c;
+        *end++ = '0' + c;
+        d /= 10;
+    } while (d != 0);
+    if (neg)
+        *end++ = '-';
+    *end-- = '\0';
+    while (end > out) {
+        WCHAR c = *out;
+        *out++ = *end;
+        *end-- = c;
+    }
+}
+
 int streq(STR a, STR b) {
+    if (a == b)
+        return 1;
     while (*a) {
         if (*a++ != *b++)
             return 0;
     }
     return 1;
 }
-#else
-#include <dlfcn.h>
-typedef const char* STR;
-#define T(str) str
-#define streq(a, b) ((a) == (b))
-#endif
-
-#ifndef RTLD_LAZY
-#define RTLD_LAZY 0
-#endif
 
 struct vector_t {
     STR *data;
@@ -141,7 +231,7 @@ struct vector_t dllist()
         }
     }
     dynamic_libraries.length = Needed / sizeof(hModules[0]) - 1;
-    dynamic_libraries.data = (STR*)malloc(sizeof(STR) * dynamic_libraries.length);
+    dynamic_libraries.data = (STR*)HeapAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS, sizeof(STR) * dynamic_libraries.length);
     for (size_t i = 0; i < dynamic_libraries.length; i++) {
         // start at 1 instead of 0 to skip self
         dynamic_libraries.data[i] = dlpath(hModules[i + 1], dynamic_libraries);
@@ -167,28 +257,37 @@ int main(int argc, STR *argv)
             opt = argv[1][1];
         if (opt == '\0' || argv[1][2] != '\0' ||
             !(opt == 'p' || opt == 'a' || opt == 'd')) {
-            printf(T("expected first argument to specify an output option:\n")
-                   T("  -p  library path\n")
-                   T("  -a  all dependencies\n")
-                   T("  -d  direct dependencies\n"));
+            fputs(T("expected first argument to specify an output option:\n")
+                  T("  -p  library path\n")
+                  T("  -a  all dependencies\n")
+                  T("  -d  direct dependencies\n"),
+                  stdout);
             return 1;
         }
     } else {
-        printf(T("expected 1 argument specifying library to open (got %d)\n"), argc - 1);
+        WCHAR digits[33];
+        fputs(T("expected 1 argument specifying library to open (got "), stdout);
+        int2str(digits, argc - 1);
+        fputs(digits, stdout);
+        fputs(T(")\n"), stdout);
         return 1;
     }
     struct vector_t before = dllist();
     void *lib = dlopen(libname, RTLD_LAZY);
     if (!lib) {
-        printf(T("failed to open library: %s\n"), dlerror());
+        fputs(T("failed to open library: "), stdout);
+        fputs(dlerror(), stdout);
+        putchar('\n');
         return 1;
     }
     struct vector_t after = dllist();
     const STR name = dlpath(lib, after);
     switch ((char)opt) {
     case 0:
-        printf(T("library:\n  %s\n\n"), name ? name : T(""));
-        printf(T("dependencies:\n"));
+        fputs(T("library:\n  "), stdout);
+        fputs(name ? name : T(""), stdout);
+        fputs(T("\n\n"), stdout);
+        fputs(T("dependencies:\n"), stdout);
         for (size_t i = 0; i < after.length; i++) {
             const STR depname = after.data[i];
             int new = 1;
@@ -196,7 +295,10 @@ int main(int argc, STR *argv)
                 if (streq(before.data[j], depname))
                     new = 0;
             }
-            printf(T("%c %s\n"), new ? T('+') : T(' '), depname);
+            putchar(new ? '+' : ' ');
+            putchar(' ');
+            fputs(depname, stdout);
+            putchar('\n');
         }
         break;
     case 'p':
