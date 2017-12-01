@@ -11,56 +11,90 @@
 int main(int argc, const WCHAR **argv);
 typedef struct {
     HANDLE fd;
+    BOOL isconsole;
 } FILE;
 static FILE _stdout = { INVALID_HANDLE_VALUE };
 static FILE _stderr = { INVALID_HANDLE_VALUE };
 FILE *stdout = &_stdout;
 FILE *stderr = &_stderr;
+int _fwrite(const WCHAR *str, size_t nchars, FILE *out) {
+    DWORD written;
+    if (out->isconsole) {
+        if (WriteConsole(out->fd, str, nchars, &written, NULL))
+            return written;
+    } else {
+        if (WriteFile(out->fd, str, sizeof(WCHAR) * nchars, &written, NULL))
+            return written;
+    }
+    return -1;
+}
 int fputs(const WCHAR *str, FILE *out)
 {
-    DWORD written;
-    if (WriteFile(out->fd, str, sizeof(WCHAR) * wcslen(str), &written, NULL))
-        return written;
-    return -1;
+    return _fwrite(str, wcslen(str), out);
+}
+int putc(WCHAR c, FILE *out)
+{
+    return _fwrite(&c, 1, out);
 }
 int putchar(WCHAR c)
 {
-    DWORD written;
-    if (WriteFile(stdout->fd, &c, sizeof(WCHAR), &written, NULL))
-        return c;
-    return -1;
+    return putc(c, stdout);
 }
 void abort() {
     ExitProcess(128 + 6);
 }
-LPWSTR *CommandLineToArgvW(LPWSTR lpCmdLine, int *pNumArgs)
+LPWSTR *CommandLineToArgv(LPWSTR lpCmdLine, int *pNumArgs)
 {
-    LPWSTR cmd = lpCmdLine;
+    LPWSTR out = lpCmdLine;
+    LPWSTR cmd = out;
     unsigned MaxEntries = 4;
+    unsigned backslashes = 0;
+    int in_quotes = 0;
+    int empty = 1;
     LPWSTR *cmds;
     *pNumArgs = 0;
     cmds = (LPWSTR*)HeapAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS, sizeof(LPWSTR) * MaxEntries);
     while (1) {
-        switch (*lpCmdLine) {
+        WCHAR c = *lpCmdLine++;
+        switch (c) {
         case 0:
-            cmds[(*pNumArgs)++] = cmd;
+            if (!empty) {
+                *out++ = '\0';
+                cmds[(*pNumArgs)++] = cmd;
+            }
             cmds[*pNumArgs] = NULL;
             return cmds;
-        case '\\':
-        case '"':
-        case '\'':
         default:
+            *out++ = c;
+            empty = 0;
             break;
+        case '"':
+            out -= backslashes / 2; // remove half of the backslashes
+            if (backslashes % 2)
+                *(out - 1) = '"'; // replace \ with "
+            else
+                in_quotes = !in_quotes; // treat as quote delimater
+            empty = 0;
+            break;
+        case '\t':
         case ' ':
-            *lpCmdLine = '\0';
-            cmds[(*pNumArgs)++] = cmd;
-            cmd = lpCmdLine + 1;
-            if (*pNumArgs >= MaxEntries - 1) {
-                MaxEntries *= 2;
-                cmds = (LPWSTR*)HeapReAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS, cmds, sizeof(LPWSTR) * MaxEntries);
+            if (in_quotes) {
+                *out++ = c;
+            } else if (!empty) {
+                *out++ = '\0';
+                cmds[(*pNumArgs)++] = cmd;
+                cmd = out;
+                empty = 1;
+                if (*pNumArgs >= MaxEntries - 1) {
+                    MaxEntries *= 2;
+                    cmds = (LPWSTR*)HeapReAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS, cmds, sizeof(LPWSTR) * MaxEntries);
+                }
             }
         }
-        lpCmdLine++;
+        if (c == '\\')
+            backslashes++;
+        else
+            backslashes = 0;
     }
 }
 int WINAPI mainCRTStartup(void)
@@ -68,10 +102,13 @@ int WINAPI mainCRTStartup(void)
     int argc;
     LPWSTR *argv;
     int retcode;
+    DWORD mode;
     // setup
     _stdout.fd = GetStdHandle(STD_OUTPUT_HANDLE);
+    _stdout.isconsole = GetConsoleMode(_stdout.fd, &mode);
     _stderr.fd = GetStdHandle(STD_ERROR_HANDLE);
-    argv = CommandLineToArgvW(GetCommandLine(), &argc);
+    _stderr.isconsole = GetConsoleMode(_stderr.fd, &mode);
+    argv = CommandLineToArgv(GetCommandLine(), &argc);
     // main
     retcode = main(argc, (const WCHAR **)argv);
     ExitProcess(retcode);
@@ -276,6 +313,12 @@ int main(int argc, STR *argv)
     void *lib = dlopen(libname, RTLD_LAZY);
     if (!lib) {
         fputs(T("failed to open library: "), stdout);
+#ifdef _WIN32
+        fputs(T("LoadLibrary("), stdout);
+        fputs(libname, stdout);
+        fputs(T("): "), stdout);
+
+#endif
         fputs(dlerror(), stdout);
         putchar('\n');
         return 1;
