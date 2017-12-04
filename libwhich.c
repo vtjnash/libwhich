@@ -7,7 +7,7 @@
 #include <windows.h>
 #include <psapi.h>
 #define T(str) L##str
-#define main wmain
+#define main wmain // avoid magic behavior for the name "main" in gcc
 int main(int argc, const WCHAR **argv);
 typedef struct {
     HANDLE fd;
@@ -97,7 +97,7 @@ LPWSTR *CommandLineToArgv(LPWSTR lpCmdLine, int *pNumArgs)
             backslashes = 0;
     }
 }
-int WINAPI mainCRTStartup(void)
+int mainCRTStartup(void) // actually is WINAPI without mangling (but ABI is the same as cdecl)
 {
     int argc;
     LPWSTR *argv;

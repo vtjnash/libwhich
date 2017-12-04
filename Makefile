@@ -1,21 +1,23 @@
 default: libwhich
 
 TARGET = $(shell uname)
-override CFLAGS += -Wall -pedantic -O2
-override LDFLAGS +=
+override CFLAGS := -Wall -pedantic -O2 $(CFLAGS)
+override LDFLAGS := $(LDFLAGS)
 
 ifeq ($(TARGET),WINNT)
-override CFLAGS += -std=c99 -municode -mconsole -ffreestanding -nostdlib \
-	-fno-stack-check -fno-stack-protector -mno-stack-arg-probe
-override LDFLAGS += -municode -mconsole -ffreestanding -nostdlib \
+override CFLAGS := -std=c99 -municode -mconsole -ffreestanding -nostdlib \
+	-fno-stack-check -fno-stack-protector -mno-stack-arg-probe \
+	$(CFLAGS)
+override LDFLAGS := -municode -mconsole -ffreestanding -nostdlib \
 	--disable-auto-import --disable-runtime-pseudo-reloc \
-	-lntdll -lkernel32 -lpsapi
+	-lntdll -lkernel32 -lpsapi \
+	$(LDFLAGS)
 else
-override CFLAGS += -std=gnu99 -D_GNU_SOURCE
+override CFLAGS := -std=gnu99 -D_GNU_SOURCE $(CFLAGS)
 endif
 
 ifeq ($(TARGET),Linux)
-override LDFLAGS += -ldl
+override LDFLAGS := -ldl $(LDFLAGS)
 endif
 
 libwhich: libwhich.o
