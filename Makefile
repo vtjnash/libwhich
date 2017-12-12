@@ -1,16 +1,37 @@
 default: libwhich
 
-override CFLAGS += -std=gnu99 -D_GNU_SOURCE
-override LDFLAGS +=
-ifeq ($(shell uname),Linux)
-override LDFLAGS += -ldl
+TARGET = $(shell uname)
+override CFLAGS := -Wall -pedantic -O2 $(CFLAGS)
+override LDFLAGS := $(LDFLAGS)
+
+ifeq ($(TARGET),WINNT)
+override CFLAGS := -std=c99 -municode -mconsole -ffreestanding -nostdlib \
+	-fno-stack-check -fno-stack-protector -mno-stack-arg-probe \
+	$(CFLAGS)
+override LDFLAGS := -municode -mconsole -ffreestanding -nostdlib \
+	--disable-auto-import --disable-runtime-pseudo-reloc \
+	-lntdll -lkernel32 -lpsapi \
+	$(LDFLAGS)
+else
+override CFLAGS := -std=gnu99 -D_GNU_SOURCE $(CFLAGS)
+endif
+
+ifeq ($(TARGET),Linux)
+override LDFLAGS := -ldl $(LDFLAGS)
 endif
 
 libwhich: libwhich.o
 	$(CC) $< -o $@ $(LDFLAGS)
 
+
+libz.so:
+	$(CC) -o $@ -shared -x c /dev/null
+ifeq ($(TARGET),WINNT)
+check: libz.so
+endif
+
 clean:
-	-rm libwhich libwhich.o
+	-rm libwhich libwhich.o libz.so
 
 check: libwhich
 	./test-libwhich.sh

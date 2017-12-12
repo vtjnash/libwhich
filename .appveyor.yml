@@ -1,0 +1,53 @@
+version: appveyor-{build}
+
+branches:
+  only:
+    - master
+
+environment:
+  matrix:
+    - PLATFORM: x86
+      CYGPATH: C:\cygwin
+    - PLATFORM: x64
+      CYGPATH: C:\cygwin64
+
+image: Visual Studio 2015
+
+init:
+  - git config --global core.autocrlf input
+
+# fetch repository as zip archive
+shallow_clone: true
+# or set clone depth (instead of cloning the whole repo)
+# clone_depth: 5
+
+build_script:
+  - '%CYGPATH%\bin\sh.exe --login -c "cd \"$OLDPWD\" && make TARGET=WINNT CC=$(uname -m)-w64-mingw32-gcc"'
+  - '%CYGPATH%\bin\sh.exe --login -c "cd \"$OLDPWD\" && make libz.so TARGET=WINNT CC=$(uname -m)-w64-mingw32-gcc"'
+
+test_script:
+  - '%CYGPATH%\bin\sh.exe --login -c "cd \"$OLDPWD\" && $(uname -m)-w64-mingw32-objdump -h libwhich.exe"'
+  - '%CYGPATH%\bin\sh.exe --login -c "cd \"$OLDPWD\" && make check TARGET=WINNT CC=$(uname -m)-w64-mingw32-gcc"'
+
+after_build:
+  - 'copy libwhich.exe libwhich-%PLATFORM%.exe'
+
+artifacts:
+  - path: libwhich-$(PLATFORM).exe
+
+deploy:
+  - provider: GitHub
+    artifact: libwhich-$(PLATFORM).exe
+    description: ''
+    auth_token:
+      secure: C2VFzOF/YfrlforX9VWGn1p4KZ91civZ3ijJEcLKxLgGBuV3RpzH0tNTAXqVOmrH
+    draft: true
+    prerelease: false
+    on:
+      appveyor_repo_tag: true       # deploy on tag push only
+
+notifications:
+  - provider: Email
+    on_build_success: false
+    on_build_failure: false
+    on_build_status_changed: false
