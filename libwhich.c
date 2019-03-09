@@ -328,11 +328,13 @@ int main(int argc, STR *argv)
     void *lib = dlopen(libname, RTLD_LAZY);
     if (!lib) {
         fputs(T("failed to open library: "), stdout);
-#ifdef _WIN32
+#if defined(_WIN32)
         fputs(T("LoadLibrary("), stdout);
         fputs(libname, stdout);
         fputs(T("): "), stdout);
-
+#elif defined(__OpenBSD__)
+        fputs(libname, stdout);
+        fputs(" ", stdout);
 #endif
         fputs(dlerror(), stdout);
         putchar('\n');
