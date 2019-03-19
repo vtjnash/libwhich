@@ -86,7 +86,7 @@ S=$(dotest ./libwhich -a libz.$SHEXT | $GREP -aF "$S") # make sure -p appears in
 echo RESULT: $S
 [ -n "$S" ] || exit 1
 
-S=`dotest ./libwhich -a libz.$SHEXT | $SED -e 's/\x00.*//'` # get an existing shared library path
+S=`dotest ./libwhich -a libz.$SHEXT | $SED -e 's/\x00.*//'` # get an existing (the first) shared library path
 echo RESULT: $S
 [ -n "$S" ] || exit 1
 stat "$S"
