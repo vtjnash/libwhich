@@ -151,11 +151,11 @@ void int2str(WCHAR *out, int d)
 int streq(STR a, STR b) {
     if (a == b)
         return 1;
-    while (*a) {
+    while (*a != '\0') {
         if (*a++ != *b++)
             return 0;
     }
-    return 1;
+    return (*b == '\0');
 }
 
 struct vector_t {
@@ -169,11 +169,10 @@ struct vector_t {
 struct vector_t dllist()
 {
     struct vector_t dynamic_libraries;
-    dynamic_libraries.length = _dyld_image_count() - 1;
+    dynamic_libraries.length = _dyld_image_count();
     dynamic_libraries.data = (const char**)malloc(sizeof(char*) * dynamic_libraries.length);
     for (size_t i = 0; i < dynamic_libraries.length; i++) {
-        // start at 1 instead of 0 to skip self
-        const char *name = _dyld_get_image_name(i + 1);
+        const char *name = _dyld_get_image_name(i);
         dynamic_libraries.data[i] = name;
     }
     return dynamic_libraries;
@@ -197,11 +196,9 @@ const char *dlpath(void *handle, struct vector_t name)
 int get_names(struct dl_phdr_info *info, size_t size, void *data)
 {
     struct vector_t *dynamic_libraries = (struct vector_t*)data;
-    if (info->dlpi_name[0]) {
-        size_t i = (++dynamic_libraries->length);
-        dynamic_libraries->data = (const char**)realloc(dynamic_libraries->data, sizeof(char*) * i);
-        dynamic_libraries->data[i - 1] = info->dlpi_name;
-    }
+    size_t i = dynamic_libraries->length++;
+    dynamic_libraries->data = (const char**)realloc(dynamic_libraries->data, sizeof(char*) * dynamic_libraries->length);
+    dynamic_libraries->data[i] = info->dlpi_name;
     return 0;
 }
 struct vector_t dllist()
@@ -267,11 +264,10 @@ struct vector_t dllist()
             return dynamic_libraries;
         }
     }
-    dynamic_libraries.length = Needed / sizeof(hModules[0]) - 1;
+    dynamic_libraries.length = Needed / sizeof(hModules[0]);
     dynamic_libraries.data = (STR*)HeapAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS, sizeof(STR) * dynamic_libraries.length);
     for (size_t i = 0; i < dynamic_libraries.length; i++) {
-        // start at 1 instead of 0 to skip self
-        dynamic_libraries.data[i] = dlpath(hModules[i + 1], dynamic_libraries);
+        dynamic_libraries.data[i] = dlpath(hModules[i], dynamic_libraries);
     }
     if (hModules != _hModules)
         HeapFree(GetProcessHeap(), 0, hModules);
@@ -331,8 +327,10 @@ int main(int argc, STR *argv)
         fputs(name ? name : T(""), stdout);
         fputs(T("\n\n"), stdout);
         fputs(T("dependencies:\n"), stdout);
-        for (size_t i = 0; i < after.length; i++) {
+        for (size_t i = 1; i < after.length; i++) {
             const STR depname = after.data[i];
+            if (depname[0] == '\0')
+                continue;
             int new = 1;
             for (size_t j = 0; new && j < before.length; j++) {
                 if (streq(before.data[j], depname))
@@ -350,8 +348,10 @@ int main(int argc, STR *argv)
         break;
     case 'a':
     case 'd':
-        for (size_t i = 0; i < after.length; i++) {
+        for (size_t i = 1; i < after.length; i++) {
             const STR depname = after.data[i];
+            if (depname[0] == '\0')
+                continue;
             int new = !streq(depname, name);
             for (size_t j = 0; new && j < before.length; j++) {
                 if (streq(before.data[j], depname))
