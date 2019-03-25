@@ -211,7 +211,7 @@ struct vector_t dllist()
     return dynamic_libraries;
 }
 
-#ifdef dlinfo
+#if defined(__linux__) || defined(__FreeBSD__) # Use `dlinfo` API, when supported
 const char *dlpath(void *handle, struct vector_t name)
 {
     struct link_map *map;
