@@ -227,7 +227,7 @@ const char *dlpath(void *handle, struct vector_t name)
         void *h2 = dlopen(name.data[i], RTLD_LAZY);
         if (h2)
             dlclose(h2);
-        // If the handle is the same as what was passed in (modulo mode bits), return this image name
+        // If the handle is the same as what was passed in, return this image name
         if (((intptr_t)handle & (-4)) == ((intptr_t)h2 & (-4)))
             return name.data[i];
     }
