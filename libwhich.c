@@ -228,7 +228,7 @@ const char *dlpath(void *handle, struct vector_t name)
         if (h2)
             dlclose(h2);
         // If the handle is the same as what was passed in, return this image name
-        if (((intptr_t)handle & (-4)) == ((intptr_t)h2 & (-4)))
+        if (handle == h2)
             return name.data[i];
     }
     return NULL;
