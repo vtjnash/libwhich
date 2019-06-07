@@ -40,7 +40,7 @@ deploy:
     artifact: libwhich-$(PLATFORM).exe
     description: ''
     auth_token:
-      secure: C2VFzOF/YfrlforX9VWGn1p4KZ91civZ3ijJEcLKxLgGBuV3RpzH0tNTAXqVOmrH
+      secure: Fg66sWbBzKnl2o9bFLgUABqgbeN9luVMLcdlQEKmpwIcSBfAmvrH+j2nZG7VCYAq
     draft: true
     prerelease: false
     on:
