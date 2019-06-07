@@ -190,7 +190,7 @@ const char *dlpath(void *handle, struct vector_t name)
     return NULL;
 }
 
-#elif defined(__linux__) || defined(__FreeBSD__) || defined(__ELF__)
+#elif defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__ELF__)
 #include <link.h>
 
 int get_names(struct dl_phdr_info *info, size_t size, void *data)
@@ -208,6 +208,7 @@ struct vector_t dllist()
     return dynamic_libraries;
 }
 
+#if defined(__linux__) || defined(__FreeBSD__)  // Use `dlinfo` API, when supported
 const char *dlpath(void *handle, struct vector_t name)
 {
     struct link_map *map;
@@ -216,6 +217,20 @@ const char *dlpath(void *handle, struct vector_t name)
         return map->l_name;
     return NULL;
 }
+#else
+const char *dlpath(void *handle, struct vector_t name)
+{
+    for (size_t i = 0; i < name.length; i++) {
+        void *h2 = dlopen(name.data[i], RTLD_LAZY);
+        if (h2)
+            dlclose(h2);
+        // If the handle is the same as what was passed in, return this image name
+        if (handle == h2)
+            return name.data[i];
+    }
+    return NULL;
+}
+#endif
 
 #elif defined(_WIN32)
 
@@ -309,11 +324,13 @@ int main(int argc, STR *argv)
     void *lib = dlopen(libname, RTLD_LAZY);
     if (!lib) {
         fputs(T("failed to open library: "), stdout);
-#ifdef _WIN32
+#if defined(_WIN32)
         fputs(T("LoadLibrary("), stdout);
         fputs(libname, stdout);
         fputs(T("): "), stdout);
-
+#elif defined(__OpenBSD__)
+        fputs(libname, stdout);
+        fputs(" ", stdout);
 #endif
         fputs(dlerror(), stdout);
         putchar('\n');
