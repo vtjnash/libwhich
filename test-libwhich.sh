@@ -86,7 +86,7 @@ S=$(dotest ./libwhich -a libz.$SHEXT | $GREP -aF "$S") # make sure -p appears in
 echo RESULT: $S
 [ -n "$S" ] || exit 1
 
-S=`dotest ./libwhich -a libz.$SHEXT | $SED -e 's/\x00.*//'` # get an existing (the first) shared library path
+S=`dotest ./libwhich -a libz.$SHEXT | $SED -e 's/^[^\\/]*\x00//' | $SED -e 's/\x00.*//'` # get an existing (the first real) shared library path
 echo RESULT: $S
 [ -n "$S" ] || exit 1
 stat "$S"
@@ -108,15 +108,21 @@ echo RESULT: $S
 
 S=`dotest ./libwhich "$LIB"`
 echo RESULT: $S
-S1=`! echo "$S" | $GREP '^+'`
+S1a=`! echo "$S" | $GREP '^+'` # see that we didn't get a line starting with +
 [ $? -eq 0 ] || exit 1
-[ -z "$S1" ] || exit 1
+[ -z "$S1a" ] || exit 1
+if [ "$TARGET" = "WINNT" ]; then
+S1b=`echo "$S" | $GREP '^  [A-Za-z]:\\\\'`
+else
+S1b=`echo "$S" | $GREP '^  /'`
+fi
+[ -n "$S1b" ] || exit 1 # see that we did get an absolute path
 if [ "$TARGET" = "WINNT" ]; then
 S2=`echo $S | $SED -e 's!^library: [A-Za-z]:\\\\[^ ]\+ dependencies: [A-Za-z]:\\\\.*!ok!'`
 else
-S2=`echo $S | $SED -e 's!^library: /[^ ]\+ dependencies: /.*$!ok!'`
+S2=`echo $S | $SED -e 's!^library: [^ ]\+ dependencies: .*$!ok!'`
 fi
-[ "$S2" = "ok" ] || exit 1
+[ "$S2" = "ok" ] || exit 1 # see that the general format is as expected
 
 S=`dotest ./libwhich libz.$SHEXT`
 echo RESULT: $S
@@ -126,14 +132,14 @@ S1b=`echo "$S" | $GREP '^+ [A-Za-z]:\\\\.*\(libz\|msvcrt\).*'`
 else
 S1b=`echo "$S" | $GREP '^+ /.*libz.*'`
 fi
-[ -n "$S1a" ] || exit 1
-[ "$S1a" = "$S1b" ] || exit 1
+[ -n "$S1a" ] || exit 1 # see that we did get a path starting with +,
+[ "$S1a" = "$S1b" ] || exit 1 # and that it's an absolute path to libz (or dependency)
 if [ "$TARGET" = "WINNT" ]; then
 S2=`echo $S | $SED -e 's!^library: [A-Za-z]:\\\\[^ ]*libz[^ ]* dependencies: [A-Za-z]:\\\\.*libz.*$!ok!'`
 else
-S2=`echo $S | $SED -e 's!^library: /[^ ]*libz[^ ]* dependencies: /.*libz.*$!ok!'`
+S2=`echo $S | $SED -e 's!^library: /[^ ]*libz[^ ]* dependencies: .*libz.*$!ok!'`
 fi
-[ "$S2" = "ok" ] || exit 1
+[ "$S2" = "ok" ] || exit 1 # see the general format is as expected
 
 ## finished successfully ##
 echo "SUCCESS"
