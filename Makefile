@@ -10,7 +10,7 @@ override CFLAGS := -std=c99 -municode -mconsole -ffreestanding -nostdlib \
 	$(CFLAGS)
 override LDFLAGS := -municode -mconsole -ffreestanding -nostdlib \
 	--disable-auto-import --disable-runtime-pseudo-reloc \
-	-lntdll -lkernel32 -lpsapi \
+	-lntdll -lkernel32 \
 	$(LDFLAGS)
 else
 override CFLAGS := -std=gnu99 -D_GNU_SOURCE $(CFLAGS)
