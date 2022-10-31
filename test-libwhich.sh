@@ -95,7 +95,11 @@ echo RESULT: $S
 S=`dotest $LIBWHICH -a libz.$SHEXT | $SED -e 's/^[^\\/]*\x00//' | $SED -e 's/\x00.*//'` # get an existing (the first real) shared library path
 echo RESULT: $S
 [ -n "$S" ] || exit 1
+if [ "$TARGET" = "Darwin" ]; then
+[ "$S" = "/usr/lib/libSystem.B.dylib" ] || exit 1
+else
 $STAT "$S"
+fi
 LIB=$S # save it for later usage
 
 S=`dotest $LIBWHICH -p "$LIB"` # test for identity

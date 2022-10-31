@@ -1,0 +1,34 @@
+name: CI
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+    tags: '*'
+jobs:
+  test:
+    name: Test ${{ join(matrix.*, ' - ') }} - ${{ github.event_name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+           - os: macos-latest
+             arch: x64
+           - os: ubuntu-latest
+             arch: x64
+           - os: ubuntu-latest
+             arch: x86
+    steps:
+      - name: Setup macOS
+        if: ${{ runner.os == 'macOS' }}
+        run: brew install gnu-sed
+      - uses: actions/checkout@v3
+      - name: Build
+        run: make
+      - name: Test
+        env:
+          SED: ${{ runner.os == 'macOS' && 'gsed' || '' }}
+        run: ./test-libwhich.sh
