@@ -1,5 +1,10 @@
 default: libwhich
 
+prefix := /usr
+bindir := $(prefix)/bin
+
+INSTALL := install
+
 TARGET = $(shell uname)
 override CFLAGS := -Wall -pedantic -O2 $(CFLAGS)
 override LDFLAGS := $(LDFLAGS)
@@ -36,4 +41,8 @@ clean:
 check: libwhich
 	./test-libwhich.sh
 
-.PHONY: clean check default
+install: libwhich
+	mkdir -p $(DESTDIR)$(bindir)
+	$(INSTALL) -m755 libwhich $(DESTDIR)$(bindir)/libwhich
+
+.PHONY: clean check default install
