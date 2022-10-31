@@ -5,7 +5,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define PSAPI_VERSION 2 // for EnumProcessModulesEx
 #include <windows.h>
-#include <psapi.h>
+#include <psapi.h> // for EnumProcessModulesEx
 #define T(str) L##str
 #define main wmain // avoid magic behavior for the name "main" in gcc
 int main(int argc, const WCHAR **argv);
@@ -19,14 +19,30 @@ FILE *stdout = &_stdout;
 FILE *stderr = &_stderr;
 int _fwrite(const WCHAR *str, size_t nchars, FILE *out) {
     DWORD written;
+    if (nchars == 0)
+        return 0;
     if (out->isconsole) {
-        if (WriteConsole(out->fd, str, nchars, &written, NULL))
+        if (WriteConsoleW(out->fd, str, nchars, &written, NULL))
             return written;
     } else {
-        if (WriteFile(out->fd, str, sizeof(WCHAR) * nchars, &written, NULL))
-            return written;
+        size_t u8len = WideCharToMultiByte(CP_UTF8, 0, str, nchars, NULL, 0, NULL, NULL);
+        char *u8str = (char*)HeapAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS, u8len);
+        if (!WideCharToMultiByte(CP_UTF8, 0, str, nchars, u8str, u8len, NULL, NULL))
+            return 0;
+        if (WriteFile(out->fd, u8str, u8len, &written, NULL)) {
+            HeapFree(GetProcessHeap(), 0, u8str);
+            return nchars;
+        }
+        HeapFree(GetProcessHeap(), 0, u8str);
     }
     return -1;
+}
+size_t wcslen(const WCHAR *str)
+{
+    size_t len = 0;
+    while (*str++)
+        len++;
+    return len;
 }
 int fputs(const WCHAR *str, FILE *out)
 {
@@ -34,7 +50,7 @@ int fputs(const WCHAR *str, FILE *out)
 }
 int putc(WCHAR c, FILE *out)
 {
-    return _fwrite(&c, 1, out);
+    return _fwrite(&c, 1, out) == -1 ? -1 :  c;
 }
 int putchar(WCHAR c)
 {
