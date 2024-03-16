@@ -56,7 +56,7 @@ int putchar(WCHAR c)
 {
     return putc(c, stdout);
 }
-void abort() {
+void abort(void) {
     ExitProcess(128 + 6);
 }
 LPWSTR *CommandLineToArgv(LPWSTR lpCmdLine, int *pNumArgs)
@@ -182,7 +182,7 @@ struct vector_t {
 #if defined(__APPLE__)
 #include <mach-o/dyld.h>
 
-struct vector_t dllist()
+struct vector_t dllist(void)
 {
     struct vector_t dynamic_libraries;
     dynamic_libraries.length = _dyld_image_count();
@@ -217,7 +217,7 @@ int get_names(struct dl_phdr_info *info, size_t size, void *data)
     dynamic_libraries->data[i] = info->dlpi_name;
     return 0;
 }
-struct vector_t dllist()
+struct vector_t dllist(void)
 {
     struct vector_t dynamic_libraries = {NULL, 0};
     dl_iterate_phdr(get_names, (void*)&dynamic_libraries);
@@ -250,7 +250,7 @@ const char *dlpath(void *handle, struct vector_t name)
 
 #elif defined(_WIN32)
 
-const STR dlerror() {
+const STR dlerror(void) {
     STR errmsg;
     FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
         FORMAT_MESSAGE_FROM_SYSTEM |
@@ -280,7 +280,7 @@ const STR dlpath(HMODULE handle, struct vector_t name)
     }
 }
 
-struct vector_t dllist()
+struct vector_t dllist(void)
 {
     struct vector_t dynamic_libraries = {NULL, 0};
     HMODULE _hModules[32];
