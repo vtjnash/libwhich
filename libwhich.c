@@ -224,7 +224,7 @@ struct vector_t dllist(void)
     return dynamic_libraries;
 }
 
-#if defined(__linux__) || defined(__FreeBSD__)  // Use `dlinfo` API, when supported
+#if (defined(__linux__) || defined(__FreeBSD__)) && !defined(ANDROID) && !defined(__ANDROID__) // Use `dlinfo` API, when supported
 const char *dlpath(void *handle, struct vector_t name)
 {
     struct link_map *map;
