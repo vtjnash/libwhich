@@ -216,6 +216,49 @@ const char *dlpath(void *handle, struct vector_t name)
 
 #elif defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__ELF__)
 #include <link.h>
+#include <string.h>
+
+/* Check for a recognized ld script line. */
+static char *check_ldscript(const char *buf)
+{
+    char *p, *e;
+    // Check only GROUP and INPUT entries
+    if ((!strncmp(buf, "GROUP", 5) || !strncmp(buf, "INPUT", 5)) && (p = strchr(buf, '('))) {
+        while (*++p == ' ') ;
+        for (e = p; *e && *e != ' ' && *e != ')'; e++);
+        char *name = malloc(e - p + 1);
+        strncpy(name, p, e - p);
+        name[e - p + 1] = '\0';
+        return name;
+    }
+    return NULL;
+}
+
+/* Try to resolve file as GNU ld script */
+static char *resolve_ldscript(const char *name)
+{
+    FILE *fp = fopen(name, "r");
+    char *p = NULL;
+    if (fp) {
+        char buf[256];
+        if (fgets(buf, sizeof(buf), fp)) {
+            // Let's hope that every ld script begins with that "magic"
+            if (!strncmp(buf, "/* GNU ld script", 16)) {
+                while (fgets(buf, sizeof(buf), fp)) {
+                    p = check_ldscript(buf);
+                    if (p) {
+                        break;
+                    }
+                }
+            } else {
+                /* Otherwise check only the first line. */
+                p = check_ldscript(buf);
+            }
+        }
+        fclose(fp);
+    }
+    return p;
+}
 
 int get_names(struct dl_phdr_info *info, size_t size, void *data)
 {
@@ -359,7 +402,30 @@ int main(int argc, STR *argv)
 #endif
     struct vector_t before = dllist();
     void *lib = dlopen(libname, RTLD_LAZY);
+    const char *err;
     if (!lib) {
+        err = dlerror();
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__ELF__)
+        /* Try to resolve ld script references. */
+        char *name;
+        const char *e;
+        if (err && *err == '/' && (e = strchr(err, ':'))) {
+            name = malloc(e - err + 1);
+            strncpy(name, err, e - err);
+            name[e - err + 1] = '\0';
+            char *test = resolve_ldscript(name);
+            if (test != NULL) {
+                // Let's try again...
+                lib = dlopen(test, RTLD_LAZY);
+                free(test);
+            }
+            if (name != NULL)
+                free(name);
+        }
+    }
+
+    if (!lib) {
+#endif
         fputs(T("failed to open library: "), stdout);
 #if defined(_WIN32)
         fputs(T("LoadLibrary("), stdout);
@@ -369,7 +435,7 @@ int main(int argc, STR *argv)
         fputs(libname, stdout);
         fputs(" ", stdout);
 #endif
-        fputs(dlerror(), stdout);
+        fputs(err, stdout);
         putchar('\n');
         return 1;
     }
