@@ -385,12 +385,12 @@ int main(int argc, STR *argv)
             const STR depname = after.data[i];
             if (depname[0] == '\0')
                 continue;
-            int new = 1;
-            for (size_t j = 0; new && j < before.length; j++) {
+            int is_new = 1;
+            for (size_t j = 0; is_new && j < before.length; j++) {
                 if (streq(before.data[j], depname))
-                    new = 0;
+                    is_new = 0;
             }
-            putchar(new ? '+' : ' ');
+            putchar(is_new ? '+' : ' ');
             putchar(' ');
             fputs(depname, stdout);
             putchar('\n');
@@ -406,12 +406,12 @@ int main(int argc, STR *argv)
             const STR depname = after.data[i];
             if (depname[0] == '\0')
                 continue;
-            int new = !streq(depname, name);
-            for (size_t j = 0; new && j < before.length; j++) {
+            int is_new = !streq(depname, name);
+            for (size_t j = 0; is_new && j < before.length; j++) {
                 if (streq(before.data[j], depname))
-                    new = 0;
+                    is_new = 0;
             }
-            if (opt == 'a' || new) {
+            if (opt == 'a' || is_new) {
                 fputs(depname, stdout);
                 putchar('\0');
             }
